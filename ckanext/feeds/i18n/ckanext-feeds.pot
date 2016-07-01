@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: feeds 0.0.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-07-01 13:33+0000\n"
+"POT-Creation-Date: 2016-07-01 15:22+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,28 +17,35 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 0.9.6\n"
 
-#: ckanext/feeds/plugin.py:136
+#: ckanext/feeds/plugin.py:139 ckanext/feeds/templates/user/dashboard.html:13
+msgid "News feed"
+msgstr ""
+
+#: ckanext/feeds/plugin.py:141
 msgid "Subscribed Activity"
-msgstr "Aboniierte Aktivitäten"
+msgstr ""
 
-#: ckanext/feeds/plugin.py:160 ckanext/feeds/plugin.py:256
+#: ckanext/feeds/plugin.py:165 ckanext/feeds/plugin.py:262
 msgid "Unknown feed format"
 msgstr ""
 
-#: ckanext/feeds/plugin.py:160 ckanext/feeds/plugin.py:256
-msgid "Unknown feed format"
+#: ckanext/feeds/plugin.py:306
+msgid "title"
 msgstr ""
 
-# activity['title']
-msgid "New Resource"
+#: ckanext/feeds/templates/user/dashboard.html:6
+msgid "Edit settings"
 msgstr ""
-msgid "Changed Resource"
+
+#: ckanext/feeds/templates/user/dashboard.html:14
+msgid "My Datasets"
 msgstr ""
-msgid "New Package"
+
+#: ckanext/feeds/templates/user/dashboard.html:15
+msgid "My Organizations"
 msgstr ""
-msgid "Changed Package"
+
+#: ckanext/feeds/templates/user/dashboard.html:16
+msgid "My Groups"
 msgstr ""
-msgid "Changed Group"
-msgstr ""
-msgid "Changed Organization"
-msgstr ""
+

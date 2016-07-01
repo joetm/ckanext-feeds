@@ -20,19 +20,20 @@ from webhelpers.feedgenerator import Atom1Feed, RssUserland091Feed, Rss201rev2Fe
 
 from ckan.controllers.user import UserController
 
-# from ckan.lib.plugins import DefaultTranslation
+from ckan.lib.plugins import DefaultTranslation
+
 
 import logging
 log = logging.getLogger(__name__)
 
 
-class FeedsPlugin(p.SingletonPlugin):
+class FeedsPlugin(p.SingletonPlugin, DefaultTranslation):
     """
     Several improvements to the feeds
     """
 
-    # not available -> no translations in plugins
-    # p.implements(p.ITranslation)
+    # custom translations
+    p.implements(p.ITranslation)
 
     p.implements(p.IConfigurer)
     def update_config(self, config):
