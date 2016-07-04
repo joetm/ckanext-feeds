@@ -301,15 +301,11 @@ class DashboardFeedController(UserController):
         c.dashboard_activity_stream_context = self._get_dashboard_context(filter_type, filter_id, q)
 
         activity_stream = tk.get_action('dashboard_activity_list')(context, {'offset': offset})
-        # log.debug('activity_stream: %s' % str(activity_stream))
-        # return str(activity_stream)
 
         activity_list = self.activity_list_to_feed(context, activity_stream)
-        # log.debug('activity_list: %s' % str(activity_list))
-        # return str(activity_list)
 
-        activity_list_limit = int(g.activity_list_limit)
-        has_more = len(activity_list) > activity_list_limit
+        # activity_list_limit = int(g.activity_list_limit)
+        # has_more = len(activity_list) > activity_list_limit
 
         # feed object
         feed = self.get_feed(feed_type=format, feed_version=request.params.get('version', '2.01'))
@@ -318,12 +314,12 @@ class DashboardFeedController(UserController):
 
         for activity in activity_list:
 
-            # log.debug(activity['msg'].format(**activity['data']))
-
             activity['msg'] = activity['msg'].format(**activity['data'])
 
             # http://docs.pylonsproject.org/projects/webhelpers/en/latest/modules/feedgenerator.html#webhelpers.feedgenerator.SyndicationFeed.add_item
-            # add_item(title, link, description, author_email=None, author_name=None, author_link=None, pubdate=None, comments=None, unique_id=None, enclosure=None, categories=(), item_copyright=None, ttl=None, **kwargs)
+
+            # required fields: title, link, description
+            # optional fields: author_email, author_name, author_link, pubdate, comments, unique_id, enclosure, categories, item_copyright, ttl, **kwargs
 
             feed.add_item(
                 title=_(activity['title']),
@@ -331,7 +327,8 @@ class DashboardFeedController(UserController):
                 description=activity['msg'],
                 author_name=activity['data']['actor'],
                 pubdate=datetime.strptime(activity['timestamp'], '%Y-%m-%dT%H:%M:%S.%f'), # '2016-06-30T15:42:52.663910'
-                # pubdate=h.date_str_to_datetime(activity['timestamp']),
+                unique_id=activity['object_id'],
+                comments="" # TODO
             )
 
         # Mark the user's new activities as old whenever they view their dashboard feed

@@ -29,23 +29,31 @@ msgstr ""
 msgid "Unknown feed format"
 msgstr ""
 
-#: ckanext/feeds/plugin.py:300
-msgid "title"
-msgstr ""
+# activity['title']
+msgid "New Resource"
+msgstr "Nouvelle Ressource"
+msgid "Changed Resource"
+msgstr "Ressource Modifiée"
+msgid "Deleted Resource"
+msgstr "Ressource Annulé"
 
-#: ckanext/feeds/templates/user/dashboard.html:6
-msgid "Edit settings"
-msgstr ""
+msgid "New Package"
+msgstr "Nouveau Paquet"
+msgid "Changed Package"
+msgstr "Paquet Modifié"
+msgid "Deleted Package"
+msgstr "Paquet Annulé"
 
-#: ckanext/feeds/templates/user/dashboard.html:14
-msgid "My Datasets"
-msgstr ""
+msgid "New Group"
+msgstr "Nouveau Groupe"
+msgid "Changed Group"
+msgstr "Groupe Modifié"
+msgid "Deleted Group"
+msgstr "Groupe Annulé"
 
-#: ckanext/feeds/templates/user/dashboard.html:15
-msgid "My Organizations"
-msgstr ""
-
-#: ckanext/feeds/templates/user/dashboard.html:16
-msgid "My Groups"
-msgstr ""
-
+msgid "New Organization"
+msgstr "Nouvelle Organisation"
+msgid "Changed Organization"
+msgstr "Organisation Modifiée"
+msgid "Deleted Organization"
+msgstr "Organisation Annulé"
