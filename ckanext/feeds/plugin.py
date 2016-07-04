@@ -1,3 +1,4 @@
+# encoding: utf-8
 """ Feeds extension """
 
 import ckan.plugins as p
@@ -21,6 +22,8 @@ from webhelpers.feedgenerator import Atom1Feed, RssUserland091Feed, Rss201rev2Fe
 from ckan.controllers.user import UserController
 
 from ckan.lib.plugins import DefaultTranslation
+
+from ckan.logic.auth.get import dashboard_activity_list as dashboard_auth
 
 
 import logging
@@ -286,22 +289,28 @@ class DashboardFeedController(UserController):
             abort(400, _('Unknown output format'))
 
 
+
         context = {'model': model, 'session': model.Session,
-                   'user': c.user or c.author, 'auth_user_obj': c.userobj,
+                   'user': c.user, 'auth_user_obj': c.userobj,
                    'for_view': True}
 
+        # check if user is logged in
+        # if user is not logged, the user is redirected to the login page
+        if not dashboard_auth(context, {}).get('success', False):
+            abort(401, _('You must be logged in to access your dashboard.'))
 
+
+        # request parameters
         q = request.params.get('q', u'') # optional query parameter
         filter_type = request.params.get('type', u'') # e.g. 'dataset'
         filter_id = request.params.get('name', u'') # e.g. 'dataset-name'
 
         # self._setup_template_variables(context, {'id': id, 'user_obj': c.userobj, 'offset': offset})
 
-        c.followee_list = tk.get_action('followee_list')(context, {'id': c.userobj.id, 'q': u''})
+        # c.followee_list = tk.get_action('followee_list')(context, {'id': c.userobj.id, 'q': u''})
         c.dashboard_activity_stream_context = self._get_dashboard_context(filter_type, filter_id, q)
 
         activity_stream = tk.get_action('dashboard_activity_list')(context, {'offset': offset})
-
         activity_list = self.activity_list_to_feed(context, activity_stream)
 
         # activity_list_limit = int(g.activity_list_limit)
@@ -328,7 +337,6 @@ class DashboardFeedController(UserController):
                 author_name=activity['data']['actor'],
                 pubdate=datetime.strptime(activity['timestamp'], '%Y-%m-%dT%H:%M:%S.%f'), # '2016-06-30T15:42:52.663910'
                 unique_id=activity['object_id'],
-                comments="" # TODO
             )
 
         # Mark the user's new activities as old whenever they view their dashboard feed
