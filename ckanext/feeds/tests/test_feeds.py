@@ -6,31 +6,43 @@ Tests for the ckanext-feeds extension.
 import paste.fixture
 import pylons.test
 import pylons.config as config
+import ckan.config
 import webtest
-
-from nose.tools import assert_raises, assert_equal
 
 import ckan.model as model
 import ckan.tests.legacy as tests
-import ckan.plugins
+import ckan.tests.helpers as h
+import ckan.plugins as p
 import ckan.tests.factories as factories
 import ckan.logic as logic
 
+# webtest_submit = h.webtest_submit
+# submit_and_follow = h.submit_and_follow
+
+from nose.tools import assert_raises, assert_equal, raises, nottest, istest
 
 
 class TestFeeds(object):
+
     '''Tests for the ckanext.feeds.plugin module.'''
 
     @classmethod
-    def setup_class(cls):
+    def setup_class(self):
         '''Nose runs this method once to setup our test class.'''
 
-        # Make the Paste TestApp that we'll use to simulate HTTP requests to
-        # CKAN.
-        # cls.app = paste.fixture.TestApp(pylons.test.pylonsapp)
+        # Make the Paste TestApp that we'll use to simulate HTTP requests to CKAN.
+        self.ckan_app = paste.fixture.TestApp(pylons.test.pylonsapp)
+
+        app = ckan.config.middleware.make_app(config['global_conf'], **config)
+        self.app = webtest.TestApp(app)
 
         # load plugin to be tested
-        ckan.plugins.load('feeds')
+        if not p.plugin_loaded('feeds'):
+            p.load('feeds')
+
+    def setup(self):
+        '''Nose runs this method before each test method in our test class.'''
+        pass
 
     def teardown(self):
         '''Nose runs this method after each test method in our test class.'''
@@ -43,32 +55,31 @@ class TestFeeds(object):
         '''Nose runs this method once after all the test methods in our class have been run.
         '''
         # unload the plugin, so it doesn't affect any tests that run after this one
-        ckan.plugins.unload('feeds')
+        if p.plugin_loaded('feeds'):
+            p.unload('feeds')
 
 
-
-    def _get_app(self):
-        # Return a test app with the custom config.
-        app = ckan.config.middleware.make_app(config['global_conf'], **config)
-        app = webtest.TestApp(app)
-
-        ckan.plugins.load('feeds')
-
-        return app
+    @istest
+    def test_get_dashboard_user_not_loggedin(self):
+        url = h.url_for(controller='dashboard_feed', action='view_dashboard_feed')
+        resp = self.app.get(url)
+        assert resp.status == '302 Found'
+        assert resp.status_int == 302
+        assert '/user/login' in resp.location # 'http://localhost/user/login'
 
 
-    def test_mimetype_is_rss_when_requesting_rss_feed(self):
-        app = self._get_app()
-        # user = factories.User()
-        resp = app.get('/dashboard?format=rss')
-        assert resp.content_type == 'application/rss+xml'
-        resp = app.get('/dashboard?format=rss&version=2.01')
-        assert resp.content_type == 'application/rss+xml'
-        resp = app.get('/dashboard?format=rss&version=0.91')
-        assert resp.content_type == 'application/rss+xml'
+    @istest
+    def test_get_dashboard_user_loggedin(self):
 
-    def test_mimetype_is_atom_when_requesting_atom_feed(self):
-        app = self._get_app()
-        # user = factories.User()
-        resp = app.get('/dashboard?format=atom')
-        assert resp.content_type == 'application/atom+xml'
+        user = factories.User()
+        owner_org = factories.Organization(users=[{'name': user['id'], 'capacity': 'admin'}])
+        dataset = factories.Dataset(owner_org=owner_org['id'])
+        resource = factories.Resource(package_id=dataset['id'])
+
+        # resp = tests.call_action_api(app, 'dashboard_feed', name='test-dashboard')
+        resp = self.app.get('/dashboard?format=rss')
+
+        assert resp.status_int == 200
+        assert resp.content_length > 0
+
+
