@@ -133,7 +133,7 @@ class DashboardFeedController(UserController):
         'related_type': rss_snippet_related_type,
     }
 
-    def get_feed(self, feed_type='rss', feed_version='0.91'):
+    def get_feed(self, feed_type='rss', feed_version='2.01'):
 
         meta = {
             'title': _('News feed'),
@@ -144,22 +144,29 @@ class DashboardFeedController(UserController):
         if lang:
             meta['language'] = unicode(lang[0])
 
-        # optional version of feed, e.g. rss 0.91 or rss 2.01
+        # optional version of feed, e.g. rss 0.91 or rss 2.01 (default)
         if feed_type == 'atom':
+
             # class webhelpers.feedgenerator.Atom1Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
             feed = Atom1Feed(**meta)
 
+            feed.content_type = 'application/atom+xml'
+
         elif feed_type == 'rss':
 
-            if feed_version not in self.RSS_FEED_VERSIONS:
-                feed_version = '0.91'
+            # if feed_version not in self.RSS_FEED_VERSIONS:
+            #     feed_version = '2.01'
 
             if feed_version == '0.91':
+
                 # class webhelpers.feedgenerator.RssUserland091Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
                 feed = RssUserland091Feed(**meta)
             else:
+
                 # class webhelpers.feedgenerator.Rss201rev2Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
                 feed = Rss201rev2Feed(**meta)
+
+            feed.content_type = 'application/rss+xml'
 
         else:
             abort(400, _('Unknown feed format'))
@@ -169,8 +176,10 @@ class DashboardFeedController(UserController):
 
     # rewrite of ckan.lib.activity_streams.activity_list_to_html
     def activity_list_to_feed(self, context, activity_stream): # extra_vars={}
-        '''Return the given activity stream as a RSS/ATOM snippet.
+        '''Return the given activity stream as a dictionary
 
+        :param context: context dictionary
+        :type context: dict
         :param activity_stream: the activity stream to render
         :type activity_stream: list of activity dictionaries
         :param extra_vars: extra variables to pass to the activity stream items
@@ -178,13 +187,15 @@ class DashboardFeedController(UserController):
         :type extra_vars: dictionary
 
         :rtype: dict to add to the feed
-
         '''
+
         activity_list = [] # These are the activity stream messages.
         for activity in activity_stream:
 
-            # sample activity
-            # {'user_id': u'082dec4d-1b01-4463-886e-6bb9e5b3a69a', 'timestamp': '2016-06-30T15:42:52.663910',
+            # sample activity:
+            # {
+            # 'user_id': u'082dec4d-1b01-4463-886e-6bb9e5b3a69a',
+            # 'timestamp': '2016-06-30T15:42:52.663910',
             # 'is_new': False, 'object_id': u'60e93d90-6fb9-4553-a91f-7089b91af0e3',
             # 'revision_id': u'c257ab4f-5b52-44c4-aee8-807ea6a8a78e',
             # 'data': {u'package': {u'maintainer': u'', u'name': u'test-datasetddd',
@@ -196,14 +207,17 @@ class DashboardFeedController(UserController):
             # u'id': u'60e93d90-6fb9-4553-a91f-7089b91af0e3', u'title': u'Test dataset',
             # u'revision_id': u'1d2afe87-4b6b-42c0-a609-c8887c460b52', u'type': u'dataset',
             # u'license_id': u'cc-by'}}, 'id': u'5de15124-72a1-49b0-bdf7-7fde01d4f47b',
-            # 'activity_type': u'changed package'}
+            # 'activity_type': u'changed package'
+            # }
 
             detail = None
             activity_type = activity['activity_type']
             # Some activity types may have details.
             if activity_type in activity_streams.activity_stream_actions_with_detail:
-                details = tk.get_action('activity_detail_list')(context=context,
-                    data_dict={'id': activity['id']})
+                details = tk.get_action('activity_detail_list')(
+                    context=context,
+                    data_dict={'id': activity['id']}
+                )
                 # If an activity has just one activity detail then render the
                 # detail instead of the activity.
                 if len(details) == 1:
@@ -240,17 +254,27 @@ class DashboardFeedController(UserController):
                                   'timestamp': activity['timestamp'],
                                   'is_new': activity.get('is_new', False)}
                                 )
+
         # extra_vars['activities'] = activity_list
         # return base.render('activity_streams/activity_stream_items.html', extra_vars=extra_vars)
+
         return activity_list
 
 
     def view_dashboard_feed(self, id=None, offset=0):
-        """Shows the dashboard as a feed"""
+        """
+        Shows the dashboard as a RSS or ATOM feed
 
-        format = request.params.get('format', None)
+        :param id: id
+        :type id: string
+        :param offset: optional offset for the query
+        :type offset: int
+
+        :rtype: rendered dashboard as html or feed
+        """
 
         # check the presence of the 'format' url parameter
+        format = request.params.get('format', None)
         if not format:
             # run the dashboard controller instead
             uc = UserController()
@@ -259,14 +283,15 @@ class DashboardFeedController(UserController):
 
         # check if format is valid
         if format not in self.AVAILABLE_FORMATS:
-            abort(400, _('Unknown feed format'))
+            abort(400, _('Unknown output format'))
 
 
         context = {'model': model, 'session': model.Session,
                    'user': c.user or c.author, 'auth_user_obj': c.userobj,
                    'for_view': True}
 
-        q = request.params.get('q', u'') # not sure what this is used for
+
+        q = request.params.get('q', u'') # optional query parameter
         filter_type = request.params.get('type', u'') # e.g. 'dataset'
         filter_id = request.params.get('name', u'') # e.g. 'dataset-name'
 
@@ -287,7 +312,7 @@ class DashboardFeedController(UserController):
         has_more = len(activity_list) > activity_list_limit
 
         # feed object
-        feed = self.get_feed(feed_type=format, feed_version=request.params.get('version', '0.91'))
+        feed = self.get_feed(feed_type=format, feed_version=request.params.get('version', '2.01'))
 
         # [{'type': u'changed-package', 'is_new': False, 'timestamp': '2016-06-30T15:42:52.663910', 'msg': u'{actor} updated the dataset {dataset}', 'data': {'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset': literal(u'<span><a href="/en/dataset/test-datasetddd">Test dataset</a></span>')}, 'icon': 'sitemap'}, {'type': u'new-resource', 'is_new': False, 'timestamp': '2016-06-30T15:42:51.464842', 'msg': u'{actor} added the resource {resource} to the dataset {dataset}', 'data': {'resource': literal(u'<a href="/en/dataset/60e93d90-6fb9-4553-a91f-7089b91af0e3/resource/658507a0-dd9a-4536-b0f5-24d79bca0db0">ATTRIBUT_DE</a>'), 'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset': literal(u'<span><a href="/en/dataset/test-datasetddd">Test dataset</a></span>')}, 'icon': 'file'}, {'type': u'deleted-resource', 'is_new': False, 'timestamp': '2016-06-30T15:42:42.723984', 'msg': u'{actor} deleted the resource {resource} from the dataset {dataset}', 'data': {'resource': literal(u'<a href="/en/dataset/60e93d90-6fb9-4553-a91f-7089b91af0e3/resource/2eafd9e0-f0ba-4d46-a41d-19796364a973">ATTRIBUT_DE</a>'), 'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset':
 
@@ -297,10 +322,8 @@ class DashboardFeedController(UserController):
 
             activity['msg'] = activity['msg'].format(**activity['data'])
 
-
             # http://docs.pylonsproject.org/projects/webhelpers/en/latest/modules/feedgenerator.html#webhelpers.feedgenerator.SyndicationFeed.add_item
             # add_item(title, link, description, author_email=None, author_name=None, author_link=None, pubdate=None, comments=None, unique_id=None, enclosure=None, categories=(), item_copyright=None, ttl=None, **kwargs)
-
 
             feed.add_item(
                 title=_(activity['title']),
@@ -311,10 +334,8 @@ class DashboardFeedController(UserController):
                 # pubdate=h.date_str_to_datetime(activity['timestamp']),
             )
 
-
         # Mark the user's new activities as old whenever they view their dashboard feed
         tk.get_action('dashboard_mark_activities_old')(context, {})
 
-        feed.content_type = 'application/atom+xml'
         return feed.writeString('utf-8')
 
