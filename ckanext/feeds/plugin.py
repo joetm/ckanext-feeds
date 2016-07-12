@@ -75,6 +75,8 @@ def rss_snippet_actor(activity, detail, context=None):
     #     'url': '%s/user/%s' % (g.site_url, user_dict['name']),
     # }
     return user_dict['name']
+
+
 def rss_snippet_user(activity, detail, context=None):
     user_dict = tk.get_action('user_show')(context, {'id': activity['object_id']})
     # return {
@@ -82,28 +84,44 @@ def rss_snippet_user(activity, detail, context=None):
     #     'url': '%s/user/%s' % (g.site_url, user_dict['name']),
     # }
     return user_dict['name']
+
+
 def rss_snippet_dataset(activity, detail, context=None):
     data = activity['data']
     dataset = data.get('package') or data.get('dataset')
     dataset['url'] = '%s/dataset/%s' % (g.site_url, dataset['name'])
     # return dataset
     return dataset['url']
+
+
 def rss_snippet_tag(activity, detail, context=None):
     return detail['data']['tag']
+
+
 def rss_snippet_group(activity, detail, context=None):
-    group = activity['data']['group']
+    group = h.dataset_display_name(activity['data']['group'])
     return group
+
+
 def rss_snippet_organization(activity, detail, context=None):
-    return activity['data']['group']
+    return h.dataset_display_name(activity['data']['group'])
+
+
 def rss_snippet_extra(activity, detail, context=None):
     return '"%s"' % detail['data']['package_extra']['key']
+
+
 def rss_snippet_resource(activity, detail, context=None):
     resource = detail['data']['resource']
     resource['url'] = '%s/dataset/%s' % (g.site_url, resource['url'])
     # return resource
     return resource['url']
+
+
 def rss_snippet_related_item(activity, detail, context=None):
     return activity['data']['related']
+
+
 def rss_snippet_related_type(activity, detail, context=None):
     # FIXME this needs to be translated
     return activity['data']['related']['type']
