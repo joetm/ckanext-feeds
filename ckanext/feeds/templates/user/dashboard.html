@@ -4,10 +4,17 @@
   <header class="module-content page-header hug">
     <div class="content_action">
       {% link_for _('Edit settings'), controller='user', action='edit', id=user.name, class_='btn', icon='cog' %}
+
       {#
+        TODO: do the feed link with the link_for method
         {% link_for _('Feed'), controller='ckanext.feeds.ckanext.plugin:FeedsPlugin', action='view_dashboard_feed', class_='btn', icon='rss-sign' %}
       #}
-      <a class="btn" href="/dashboard?format=rss"><i class="icon-rss-sign"></i> Feed</a>
+      {% set params = h.get_parameters() %}
+      <a class="btn" href="/dashboard?format={% if params.format %}{{params.format|e}}{% else %}rss{% endif%}{% if params.type %}&amp;type={{params.type|e}}{% endif%}{% if params.name %}&amp;name={{params.name|e}}{% endif%}">
+          <i class="icon-rss-sign"></i>
+          Feed
+      </a>
+
     </div>
     <ul class="nav nav-tabs">
       {{ h.build_nav_icon('user_dashboard', _('News feed')) }}

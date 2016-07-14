@@ -1,33 +1,27 @@
 # encoding: utf-8
 """ Feeds extension """
 
+import logging
+log = logging.getLogger(__name__)
+
 import ckan.plugins as p
 import ckan.plugins.toolkit as tk
+import ckan.lib.helpers as h
 
 from datetime import datetime
 
 import re
 from ckan.lib.base import abort
 
-import ckan.lib.helpers as h
-
 import ckan.model as model
 from ckan.common import _, c, g, request, response
 from pylons.i18n import get_lang
 
 import ckan.lib.activity_streams as activity_streams
-
 from webhelpers.feedgenerator import Atom1Feed, RssUserland091Feed, Rss201rev2Feed
-
 from ckan.controllers.user import UserController
-
 from ckan.lib.plugins import DefaultTranslation
-
 from ckan.logic.auth.get import dashboard_activity_list as dashboard_auth
-
-
-import logging
-log = logging.getLogger(__name__)
 
 
 class FeedsPlugin(p.SingletonPlugin, DefaultTranslation):
@@ -35,52 +29,47 @@ class FeedsPlugin(p.SingletonPlugin, DefaultTranslation):
     Several improvements to the feeds
     """
 
-    # custom translations
+    # enable the custom translations
     p.implements(p.ITranslation)
 
     p.implements(p.IConfigurer)
     def update_config(self, config):
-    	# add the template dir
+        # add the template dir
         tk.add_template_directory(config, 'templates')
+
+    # ----------------
+    # Template Helpers
+    # ----------------
+    def get_parameters(self):
+        return {
+            'format': request.params.get('format', u'rss'),
+            'type': request.params.get('type', False),
+            'name': request.params.get('name', False)
+        }
+    p.implements(p.ITemplateHelpers)
+    def get_helpers(self):
+        return {
+            'get_parameters': self.get_parameters
+        }
+
 
     p.implements(p.IRoutes, inherit=True)
 
     def before_map(self, map):
         """Iroutes.before_map"""
-
         map.connect('dashboard_feed',
                     '/dashboard',
                     controller='ckanext.feeds.plugin:DashboardFeedController',
                     action='view_dashboard_feed'
         )
-
         return map
-
-
-### sample user_dict:
-###
-### {'openid': None, 'about': None, 'apikey': u'a3cdeb1f-6130-4a94-839e-f82393c1c393',
-### 'display_name': u'admin', 'name': u'admin', 'created': '2015-08-25T13:04:04.078294',
-### 'email_hash': 'ef7ba7dba0b6de1cb0ee35c02d1757fc', 'email': u'admin@email.org',
-### 'sysadmin': True, 'activity_streams_email_notifications': False, 'state': u'active',
-### 'number_of_edits': 437L, 'fullname': None, 'id': u'082dec4d-1b01-4463-886e-6bb9e5b3a69a',
-### 'number_created_packages': 10L}
-###
 
 
 def rss_snippet_actor(activity, detail, context=None):
     user_dict = tk.get_action('user_show')(context, {'id': activity['user_id']})
-    # return {
-    #     'name': user_dict['name'],
-    #     'url': '%s/user/%s' % (g.site_url, user_dict['name']),
-    # }
     return user_dict['name']
 def rss_snippet_user(activity, detail, context=None):
     user_dict = tk.get_action('user_show')(context, {'id': activity['object_id']})
-    # return {
-    #     'name': user_dict['name'],
-    #     'url': '%s/user/%s' % (g.site_url, user_dict['name']),
-    # }
     return user_dict['name']
 def rss_snippet_dataset(activity, detail, context=None):
     data = activity['data']
@@ -105,7 +94,7 @@ def rss_snippet_resource(activity, detail, context=None):
 def rss_snippet_related_item(activity, detail, context=None):
     return activity['data']['related']
 def rss_snippet_related_type(activity, detail, context=None):
-    # FIXME this needs to be translated
+    # TODO: this needs to be translated
     return activity['data']['related']['type']
 
 
@@ -283,12 +272,9 @@ class DashboardFeedController(UserController):
             uc = UserController()
             return uc.dashboard(id, offset)
 
-
         # check if format is valid
         if format not in self.AVAILABLE_FORMATS:
             abort(400, _('Unknown output format'))
-
-
 
         context = {'model': model, 'session': model.Session,
                    'user': c.user, 'auth_user_obj': c.userobj,
@@ -299,18 +285,25 @@ class DashboardFeedController(UserController):
         if not dashboard_auth(context, {}).get('success', False):
             abort(401, _('You must be logged in to access your dashboard.'))
 
-
         # request parameters
         q = request.params.get('q', u'') # optional query parameter
-        filter_type = request.params.get('type', u'') # e.g. 'dataset'
-        filter_id = request.params.get('name', u'') # e.g. 'dataset-name'
+        filter_type = request.params.get('type', u'') # e.g. 'dataset' to view only the activities related to datasets
+        filter_id = request.params.get('name', u'') # e.g. the name or id of the dataset to filter for
 
         # self._setup_template_variables(context, {'id': id, 'user_obj': c.userobj, 'offset': offset})
 
         # c.followee_list = tk.get_action('followee_list')(context, {'id': c.userobj.id, 'q': u''})
         c.dashboard_activity_stream_context = self._get_dashboard_context(filter_type, filter_id, q)
 
-        activity_stream = tk.get_action('dashboard_activity_list')(context, {'offset': offset})
+        # https://github.com/ckan/ckan/blob/55ae76ec73e97bcae05b778ab35f23ed518e6e24/ckan/controllers/user.py#L672
+        # activity_stream = h.dashboard_activity_stream(c.user, filter_type, filter_id, offset)
+        activity_stream = tk.get_action('dashboard_activity_list')(context, {
+            'offset': offset,
+            'filter_type': filter_type,
+            'filter_id': filter_id,
+            'q': q,
+        })
+
         activity_list = self.activity_list_to_feed(context, activity_stream)
 
         # activity_list_limit = int(g.activity_list_limit)
@@ -319,17 +312,13 @@ class DashboardFeedController(UserController):
         # feed object
         feed = self.get_feed(feed_type=format, feed_version=request.params.get('version', '2.01'))
 
-        # [{'type': u'changed-package', 'is_new': False, 'timestamp': '2016-06-30T15:42:52.663910', 'msg': u'{actor} updated the dataset {dataset}', 'data': {'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset': literal(u'<span><a href="/en/dataset/test-datasetddd">Test dataset</a></span>')}, 'icon': 'sitemap'}, {'type': u'new-resource', 'is_new': False, 'timestamp': '2016-06-30T15:42:51.464842', 'msg': u'{actor} added the resource {resource} to the dataset {dataset}', 'data': {'resource': literal(u'<a href="/en/dataset/60e93d90-6fb9-4553-a91f-7089b91af0e3/resource/658507a0-dd9a-4536-b0f5-24d79bca0db0">ATTRIBUT_DE</a>'), 'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset': literal(u'<span><a href="/en/dataset/test-datasetddd">Test dataset</a></span>')}, 'icon': 'file'}, {'type': u'deleted-resource', 'is_new': False, 'timestamp': '2016-06-30T15:42:42.723984', 'msg': u'{actor} deleted the resource {resource} from the dataset {dataset}', 'data': {'resource': literal(u'<a href="/en/dataset/60e93d90-6fb9-4553-a91f-7089b91af0e3/resource/2eafd9e0-f0ba-4d46-a41d-19796364a973">ATTRIBUT_DE</a>'), 'actor': literal(u'<span class="actor"><img src="//gravatar.com/avatar/ef7ba7dba0b6de1cb0ee35c02d1757fc?s=30&amp;d=identicon"\n class="gravatar" width="30" height="30" /> <a href="/en/user/admin">admin</a></span>'), 'dataset':
-
         for activity in activity_list:
 
             activity['msg'] = activity['msg'].format(**activity['data'])
 
             # http://docs.pylonsproject.org/projects/webhelpers/en/latest/modules/feedgenerator.html#webhelpers.feedgenerator.SyndicationFeed.add_item
-
             # required fields: title, link, description
             # optional fields: author_email, author_name, author_link, pubdate, comments, unique_id, enclosure, categories, item_copyright, ttl, **kwargs
-
             feed.add_item(
                 title=_(activity['title']),
                 link='%s/revision/%s' % (g.site_url, activity['revision_id']),
