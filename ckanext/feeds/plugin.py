@@ -13,6 +13,8 @@ from datetime import datetime
 import re
 from ckan.lib.base import abort
 
+from ckan.logic.action.get import package_activity_list, user_activity_list, group_activity_list, organization_activity_list
+
 import ckan.model as model
 from ckan.common import _, c, g, request, response
 from pylons.i18n import get_lang
@@ -65,6 +67,7 @@ class FeedsPlugin(p.SingletonPlugin, DefaultTranslation):
         return map
 
 
+
 def rss_snippet_actor(activity, detail, context=None):
     user_dict = tk.get_action('user_show')(context, {'id': activity['user_id']})
     return user_dict['name']
@@ -82,23 +85,18 @@ def rss_snippet_dataset(activity, detail, context=None):
     # return dataset
     return dataset['url']
 
-
 def rss_snippet_tag(activity, detail, context=None):
     return detail['data']['tag']
-
 
 def rss_snippet_group(activity, detail, context=None):
     group = h.dataset_display_name(activity['data']['group'])
     return group
 
-
 def rss_snippet_organization(activity, detail, context=None):
     return h.dataset_display_name(activity['data']['group'])
 
-
 def rss_snippet_extra(activity, detail, context=None):
     return '"%s"' % detail['data']['package_extra']['key']
-
 
 def rss_snippet_resource(activity, detail, context=None):
     resource = detail['data']['resource']
@@ -106,10 +104,8 @@ def rss_snippet_resource(activity, detail, context=None):
     # return resource
     return resource['url']
 
-
 def rss_snippet_related_item(activity, detail, context=None):
     return activity['data']['related']
-
 
 def rss_snippet_related_type(activity, detail, context=None):
     # TODO: this needs to be translated
@@ -308,19 +304,51 @@ class DashboardFeedController(UserController):
         filter_type = request.params.get('type', u'') # e.g. 'dataset' to view only the activities related to datasets
         filter_id = request.params.get('name', u'') # e.g. the name or id of the dataset to filter for
 
-        # self._setup_template_variables(context, {'id': id, 'user_obj': c.userobj, 'offset': offset})
+        offset = request.params.get('offset', 0)
+        limit = request.params.get('limit', 0)
 
-        # c.followee_list = tk.get_action('followee_list')(context, {'id': c.userobj.id, 'q': u''})
+        # TODO: this would allow to view only unread items
+        is_new = bool(request.params.get('is_new', False))
+
+        self._setup_template_variables(context, {'id': id, 'user_obj': c.userobj, 'offset': offset})
+
+        c.followee_list = tk.get_action('followee_list')(context, {'id': c.userobj.id, 'q': u''})
         c.dashboard_activity_stream_context = self._get_dashboard_context(filter_type, filter_id, q)
 
         # https://github.com/ckan/ckan/blob/55ae76ec73e97bcae05b778ab35f23ed518e6e24/ckan/controllers/user.py#L672
-        # activity_stream = h.dashboard_activity_stream(c.user, filter_type, filter_id, offset)
-        activity_stream = tk.get_action('dashboard_activity_list')(context, {
+
+        query_dict = {
+            'id': filter_id,
             'offset': offset,
-            'filter_type': filter_type,
-            'filter_id': filter_id,
-            'q': q,
-        })
+            'limit': limit,
+        }
+
+        if filter_type == 'dataset':
+
+            activity_stream = package_activity_list(context, query_dict)
+
+        elif filter_type == 'user':
+
+            activity_stream = user_activity_list(context, query_dict)
+
+        elif filter_type == 'group':
+
+            activity_stream = group_activity_list(context, query_dict)
+
+        elif filter_type == 'organization':
+
+            activity_stream = organization_activity_list(context, query_dict)
+
+        else:
+
+            # full, unfiltered, activity stream
+            # activity_stream = h.dashboard_activity_stream(c.user, filter_type, filter_id, offset)
+            activity_stream = tk.get_action('dashboard_activity_list')(context, {
+                'offset': offset,
+                'is_new': is_new,
+            })
+
+        # log.debug('activity_stream: %s' % activity_stream)
 
         activity_list = self.activity_list_to_feed(context, activity_stream)
 
@@ -331,6 +359,8 @@ class DashboardFeedController(UserController):
         feed = self.get_feed(feed_type=format, feed_version=request.params.get('version', '2.01'))
 
         for activity in activity_list:
+
+            log.debug(activity['msg'])
 
             activity['msg'] = activity['msg'].format(**activity['data'])
 
