@@ -25,6 +25,9 @@ from ckan.controllers.user import UserController
 from ckan.lib.plugins import DefaultTranslation
 from ckan.logic.auth.get import dashboard_activity_list as dashboard_auth
 
+from ckan.controllers.user import UserController
+
+
 
 class FeedsPlugin(p.SingletonPlugin, DefaultTranslation):
     """
@@ -146,6 +149,7 @@ class DashboardFeedController(UserController):
             'link': h.url_for(controller='user', action='dashboard', id=''),
             'description': _('Subscribed Activity'), #_("Activity from items that I'm following"),
         }
+        
         lang = get_lang()
         if lang:
             meta['language'] = unicode(lang[0])
@@ -155,7 +159,6 @@ class DashboardFeedController(UserController):
 
             # class webhelpers.feedgenerator.Atom1Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
             feed = Atom1Feed(**meta)
-
             feed.content_type = 'application/atom+xml'
 
         elif feed_type == 'rss':
@@ -164,11 +167,9 @@ class DashboardFeedController(UserController):
             #     feed_version = '2.01'
 
             if feed_version == '0.91':
-
                 # class webhelpers.feedgenerator.RssUserland091Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
                 feed = RssUserland091Feed(**meta)
             else:
-
                 # class webhelpers.feedgenerator.Rss201rev2Feed(title, link, description, language=None, author_email=None, author_name=None, author_link=None, subtitle=None, categories=None, feed_url=None, feed_copyright=None, feed_guid=None, ttl=None, **kwargs)
                 feed = Rss201rev2Feed(**meta)
 
@@ -180,7 +181,7 @@ class DashboardFeedController(UserController):
         return feed
 
 
-    # rewrite of ckan.lib.activity_streams.activity_list_to_html
+    # adapted from ckan.lib.activity_streams.activity_list_to_html
     def activity_list_to_feed(self, context, activity_stream): # extra_vars={}
         '''Return the given activity stream as a dictionary
 
@@ -324,23 +325,14 @@ class DashboardFeedController(UserController):
         }
 
         if filter_type == 'dataset':
-
             activity_stream = package_activity_list(context, query_dict)
-
         elif filter_type == 'user':
-
             activity_stream = user_activity_list(context, query_dict)
-
         elif filter_type == 'group':
-
             activity_stream = group_activity_list(context, query_dict)
-
         elif filter_type == 'organization':
-
             activity_stream = organization_activity_list(context, query_dict)
-
         else:
-
             # full, unfiltered, activity stream
             # activity_stream = h.dashboard_activity_stream(c.user, filter_type, filter_id, offset)
             activity_stream = tk.get_action('dashboard_activity_list')(context, {
@@ -351,6 +343,8 @@ class DashboardFeedController(UserController):
         # log.debug('activity_stream: %s' % activity_stream)
 
         activity_list = self.activity_list_to_feed(context, activity_stream)
+
+        log.debug('activity_list: %s' % str(activity_list))
 
         # activity_list_limit = int(g.activity_list_limit)
         # has_more = len(activity_list) > activity_list_limit
